@@ -62,8 +62,8 @@ def get_traffic_geojson(edges_df, time_slot):
 
 @st.cache_data
 def load_data(time_slot):
-    n_path = r"D:\LapTrinh\astar-traffic-hcmc-routing\data\nodes.csv"
-    e_path = r"D:\LapTrinh\astar-traffic-hcmc-routing\data\edges.csv"
+    n_path = r"data\nodes.csv"
+    e_path = r"data\edges.csv"
     
     coords, adj ,edges_lookup = load_graph(n_path, e_path, time_slot)
 

@@ -77,7 +77,7 @@ def dwa_star_search(
         cur_lat, cur_lon = coords[node_id]
         cur_goal_dist = haversine_m(cur_lat, cur_lon, goal_lat, goal_lon)
         # Công thức: h(n) = (1 + cur_goal_dist / start_goal_dist) * cur_goal_dist
-        return (1.0 + cur_goal_dist / start_goal_dist) * cur_goal_dist
+        return (1.0 + 0.5*cur_goal_dist / start_goal_dist) * cur_goal_dist
 
 
     g_score: Dict[int, float] = {start: 0.0}
