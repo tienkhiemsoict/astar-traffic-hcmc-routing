@@ -224,12 +224,12 @@ def main():
         print("So node da duyet:", visited_count)
         return
 
-    edge_id_list = node_path_to_edge_ids(node_path, edge_lookup)
+    
 
     print("Tong chi phi:", total_cost)
     print("So node da duyet:", visited_count)
     print("Node path:", node_path)
-    print("ID cac canh:", edge_id_list)
+    
 
 
 if __name__ == "__main__":
