@@ -1,9 +1,8 @@
 import csv
 import ast
 import math
-import itertools
-from dataclasses import dataclass, field
-from typing import Optional, Dict, List, Tuple
+import heapq
+from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 
 
@@ -16,17 +15,18 @@ def load_graph(nodes_path: str, edges_path: str, time_slot: int):
 
     Return:
         coords[node_id] = (lat, lon)
-        adj[u] = [(v, weight_at_time_slot), ...]
+        adj[u] = [(v, weight_at_slot), ...]
         edge_lookup[(u, v)] = {
             "osmid": edge id,
             "weight": ...,
             "length": ...
         }
+
+    Nếu có nhiều edge cùng u->v, giữ edge có weight nhỏ nhất ở time_slot đó.
     """
     if not (1 <= time_slot <= 48):
         raise ValueError("time_slot must be in [1, 48].")
 
-    # load nodes
     coords: Dict[int, Tuple[float, float]] = {}
     with open(nodes_path, "r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
@@ -36,8 +36,6 @@ def load_graph(nodes_path: str, edges_path: str, time_slot: int):
             lon = float(row["x"])
             coords[node_id] = (lat, lon)
 
-    # load edges
-    # nếu có nhiều edge cùng u->v thì lấy edge có weight nhỏ nhất tại time_slot đó
     idx = time_slot - 1
     adj_min: Dict[int, Dict[int, float]] = defaultdict(dict)
     edge_lookup: Dict[Tuple[int, int], dict] = {}
@@ -84,112 +82,39 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 # =========================
-# 3) SEARCH NODE FOR SMA*
+# 3) RECONSTRUCT PATH
 # =========================
-@dataclass
-class SearchNode:
-    state: int
-    g: float
-    h: float
-    f: float
-    parent: Optional["SearchNode"] = None
-    children: List["SearchNode"] = field(default_factory=list)
-    best_forgotten: float = math.inf
-    active: bool = True
-    uid: int = 0
+def reconstruct_node_path(came_from: Dict[int, int], goal: int) -> List[int]:
+    path = [goal]
+    cur = goal
+    while cur in came_from:
+        cur = came_from[cur]
+        path.append(cur)
+    path.reverse()
+    return path
 
 
-def reconstruct_path(node: SearchNode) -> List[int]:
-    path = []
-    while node is not None:
-        path.append(node.state)
-        node = node.parent
-    return path[::-1]
-
-
-def is_ancestor(node: Optional[SearchNode], state: int) -> bool:
-    """
-    Tránh cycle trên cùng nhánh tìm kiếm
-    """
-    while node is not None:
-        if node.state == state:
-            return True
-        node = node.parent
-    return False
-
-
-def choose_best_leaf(open_leaves: Dict[int, SearchNode]) -> SearchNode:
-    """
-    Chọn leaf tốt nhất:
-    - f nhỏ nhất
-    - h nhỏ hơn ưu tiên
-    - g lớn hơn ưu tiên khi tie
-    """
-    return min(open_leaves.values(), key=lambda n: (n.f, n.h, -n.g, n.uid))
-
-
-def choose_worst_leaf(open_leaves: Dict[int, SearchNode], root_uid: int) -> Optional[SearchNode]:
-    """
-    Chọn leaf tệ nhất để prune khi vượt memory.
-    Không prune root nếu có thể tránh.
-    """
-    candidates = [n for n in open_leaves.values() if n.uid != root_uid]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda n: (n.f, -n.g, -n.uid))
-
-
-def backup_from(node: Optional[SearchNode], open_leaves: Dict[int, SearchNode]) -> None:
-    """
-    Backup f từ con lên cha theo tinh thần SMA*
-    """
-    while node is not None:
-        if node.children:
-            best_child_f = min(child.f for child in node.children)
-            node.f = max(node.g + node.h, min(best_child_f, node.best_forgotten))
-            open_leaves.pop(node.uid, None)  # internal node không nằm trong open leaf
-        else:
-            node.f = max(node.g + node.h, node.best_forgotten)
-            if node.active:
-                open_leaves[node.uid] = node
-        node = node.parent
-
-
-def prune_worst_leaf(
-    open_leaves: Dict[int, SearchNode],
-    active_nodes: Dict[int, SearchNode],
-    root_uid: int,
-) -> bool:
-    """
-    Prune leaf xấu nhất khi vượt memory_limit
-    """
-    worst = choose_worst_leaf(open_leaves, root_uid)
-    if worst is None:
-        return False
-
-    open_leaves.pop(worst.uid, None)
-    active_nodes.pop(worst.uid, None)
-    worst.active = False
-
-    parent = worst.parent
-    if parent is not None:
-        parent.best_forgotten = min(parent.best_forgotten, worst.f)
-        parent.children = [c for c in parent.children if c.uid != worst.uid]
-        backup_from(parent, open_leaves)
-
-    return True
+def node_path_to_edge_ids(
+    node_path: List[int],
+    edge_lookup: Dict[Tuple[int, int], dict],
+) -> List[Optional[str]]:
+    edge_id_list: List[Optional[str]] = []
+    for a, b in zip(node_path, node_path[1:]):
+        edge = edge_lookup.get((a, b))
+        edge_id_list.append(None if edge is None else edge["osmid"])
+    return edge_id_list
 
 
 # =========================
-# 4) SMA* SEARCH
+# 4) DWA* SEARCH
 # =========================
-def sma_star_shortest_path(
+def a_star_shortest_path(
     nodes_path: str,
     edges_path: str,
     start: int,
     goal: int,
     time_slot: int,
-    memory_limit: int = 200,
+    max_expansion: int = 200000,
 ) -> Tuple[Optional[List[int]], float, int, Dict[Tuple[int, int], dict]]:
     coords, adj, edge_lookup = load_graph(nodes_path, edges_path, time_slot)
 
@@ -199,7 +124,7 @@ def sma_star_shortest_path(
         raise ValueError(f"Goal node {goal} does not exist in nodes.csv")
 
     if start == goal:
-        return [start], 0.0, 0, edge_lookup
+        return [start], 0.0, 1, edge_lookup
 
     goal_lat, goal_lon = coords[goal]
 
@@ -207,138 +132,95 @@ def sma_star_shortest_path(
         lat, lon = coords[node_id]
         return haversine_m(lat, lon, goal_lat, goal_lon)
 
-    uid_gen = itertools.count(1)
+    # g_score[node] = chi phí tốt nhất từ start tới node
+    g_score: Dict[int, float] = {start: 0.0}
 
-    root = SearchNode(
-        state=start,
-        g=0.0,
-        h=heuristic(start),
-        f=heuristic(start),
-        uid=next(uid_gen),
-    )
+    # parent map để reconstruct path
+    came_from: Dict[int, int] = {}
 
-    open_leaves: Dict[int, SearchNode] = {root.uid: root}
-    active_nodes: Dict[int, SearchNode] = {root.uid: root}
+    # heap item: (f, h, node)
+    open_heap: List[Tuple[float, float, int]] = []
+    start_h = heuristic(start)
+    heapq.heappush(open_heap, (start_h, start_h, start))
 
-    # Giữ tinh thần g(n) theo Dijkstra:
-    # chỉ giữ đường đi tốt hơn tới cùng 1 state
-    best_g_seen: Dict[int, float] = {start: 0.0}
-
-    # số node đã duyệt / expanded
     visited_count = 0
+    closed_set = set()
 
-    while open_leaves:
-        best = choose_best_leaf(open_leaves)
+    while open_heap:
+        current_f, current_h, current = heapq.heappop(open_heap)
 
-        if math.isinf(best.f):
-            return None, math.inf, visited_count, edge_lookup
-
-        # tính là đã duyệt khi node được lấy ra để expand/check
-        visited_count += 1
-
-        if best.state == goal:
-            return reconstruct_path(best), best.g, visited_count, edge_lookup
-
-        open_leaves.pop(best.uid, None)
-        successors = adj.get(best.state, [])
-        generated_any = False
-
-        if not successors:
-            best.f = math.inf
-            backup_from(best, open_leaves)
+        if current in closed_set:
             continue
 
-        for succ, edge_cost in successors:
-            if is_ancestor(best, succ):
-                continue
+        expected_f = g_score[current] + heuristic(current)
+        if current_f > expected_f + 1e-9:
+            continue
 
-            new_g = best.g + edge_cost
+        closed_set.add(current)
+        visited_count += 1
 
-            # g(n) kiểu Dijkstra: bỏ qua đường đi không tốt hơn
-            if new_g >= best_g_seen.get(succ, math.inf) - 1e-12:
-                continue
-            best_g_seen[succ] = new_g
+        if visited_count > max_expansion:
+            print(f"Search stopped: exceeded max_expansion={max_expansion}")
+            return None, math.inf, visited_count, edge_lookup
 
-            child_h = heuristic(succ)
-            child_f = max(best.f, new_g + child_h)
-
-            child = SearchNode(
-                state=succ,
-                g=new_g,
-                h=child_h,
-                f=child_f,
-                parent=best,
-                uid=next(uid_gen),
+        if visited_count % 5000 == 0:
+            print(
+                f"expanded={visited_count}, "
+                f"open_size={len(open_heap)}, "
+                f"current_state={current}, "
+                f"current_f={current_f:.3f}"
             )
 
-            best.children.append(child)
-            active_nodes[child.uid] = child
-            open_leaves[child.uid] = child
-            generated_any = True
+        if current == goal:
+            path = reconstruct_node_path(came_from, goal)
+            return path, g_score[goal], visited_count, edge_lookup
 
-            # enforce memory limit = 200
-            while len(active_nodes) > memory_limit:
-                if not prune_worst_leaf(open_leaves, active_nodes, root.uid):
-                    break
+        for neighbor, edge_cost in adj.get(current, []):
+            if neighbor in closed_set:
+                continue
 
-        if not generated_any:
-            best.f = math.inf
+            tentative_g = g_score[current] + edge_cost
 
-        backup_from(best, open_leaves)
+            if tentative_g < g_score.get(neighbor, math.inf):
+                came_from[neighbor] = current
+                g_score[neighbor] = tentative_g
+                h = heuristic(neighbor)
+                f = tentative_g + h
+                heapq.heappush(open_heap, (f, h, neighbor))
 
     return None, math.inf, visited_count, edge_lookup
 
 
 # =========================
-# 5) NODE PATH -> EDGE IDS
-# =========================
-def node_path_to_edge_ids(
-    node_path: List[int],
-    edge_lookup: Dict[Tuple[int, int], dict],
-) -> List[str]:
-    edge_id_list = []
-
-    for a, b in zip(node_path, node_path[1:]):
-        edge = edge_lookup.get((a, b))
-        if edge is None:
-            edge_id_list.append(None)
-        else:
-            edge_id_list.append(edge["osmid"])
-
-    return edge_id_list
-
-
-# =========================
-# 6) MAIN - INPUT / OUTPUT
+# 5) MAIN
 # =========================
 def main():
-    nodes_path = "nodes.csv"
-    edges_path = "edges.csv"
+    nodes_path = "/kaggle/input/datasets/minhcng2716/khiem-lon/nodes.csv"
+    edges_path = "/kaggle/input/datasets/minhcng2716/khiem-lon/edges.csv"
 
     start = int(input("Nhap start node: ").strip())
     goal = int(input("Nhap goal node: ").strip())
     time_slot = int(input("Nhap khoang thoi gian (1..48): ").strip())
 
-    path, total_cost, visited_count, edge_lookup = sma_star_shortest_path(
+    node_path, total_cost, visited_count, edge_lookup = a_star_shortest_path(
         nodes_path=nodes_path,
         edges_path=edges_path,
         start=start,
         goal=goal,
         time_slot=time_slot,
-        memory_limit=200,
+        max_expansion=200000,
     )
 
-    if path is None:
-        print("Khong tim duoc duong di voi gioi han bo nho hien tai.")
-    else:
-        edge_id_list = node_path_to_edge_ids(path, edge_lookup)
+    if node_path is None:
+        print("Khong tim duoc duong di.")
+        return
 
-        print("Tong chi phi:", total_cost)
-        print("So node da duyet:", visited_count)
-        print("ID cac canh:", edge_id_list)
+    
 
-        # nếu vẫn muốn xem node path để debug thì bỏ comment dòng dưới
-        # print("Node path:", path)
+    print("Tong chi phi:", total_cost)
+    print("So node da duyet:", visited_count)
+    print("Node path:", node_path)
+   
 
 
 if __name__ == "__main__":
