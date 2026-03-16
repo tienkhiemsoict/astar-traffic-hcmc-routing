@@ -62,7 +62,7 @@ def load_graph(nodes_path: str, edges_path: str, time_slot: int):
 
 
 # =========================
-# 2) HAVERSINE HEURISTIC
+# 2) HAVERSINE
 # =========================
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -106,7 +106,7 @@ def node_path_to_edge_ids(
 
 
 # =========================
-# 4) DWA* SEARCH
+# 4) A* SEARCH
 # =========================
 def a_star_shortest_path(
     nodes_path: str,
@@ -126,16 +126,24 @@ def a_star_shortest_path(
     if start == goal:
         return [start], 0.0, 1, edge_lookup
 
+    start_lat, start_lon = coords[start]
     goal_lat, goal_lon = coords[goal]
 
+    start_goal_dist = haversine_m(start_lat, start_lon, goal_lat, goal_lon)
+
     def heuristic(node_id: int) -> float:
-        lat, lon = coords[node_id]
-        return haversine_m(lat, lon, goal_lat, goal_lon)
+        cur_lat, cur_lon = coords[node_id]
+        cur_goal_dist = haversine_m(cur_lat, cur_lon, goal_lat, goal_lon)
 
-    # g_score[node] = chi phí tốt nhất từ start tới node
+        # Theo đúng công thức user yêu cầu:
+        # h(n) = (1 + cur_goal_dist / start_goal_dist) * start_goal_dist
+        # xử lý an toàn nếu start_goal_dist = 0
+        if start_goal_dist == 0:
+            return 0.0
+
+        return (1.0 + cur_goal_dist / start_goal_dist) * start_goal_dist
+
     g_score: Dict[int, float] = {start: 0.0}
-
-    # parent map để reconstruct path
     came_from: Dict[int, int] = {}
 
     # heap item: (f, h, node)
@@ -195,8 +203,8 @@ def a_star_shortest_path(
 # 5) MAIN
 # =========================
 def main():
-    nodes_path = "/kaggle/input/datasets/minhcng2716/khiem-lon/nodes.csv"
-    edges_path = "/kaggle/input/datasets/minhcng2716/khiem-lon/edges.csv"
+    nodes_path = "nodes.csv"
+    edges_path = "edges.csv"
 
     start = int(input("Nhap start node: ").strip())
     goal = int(input("Nhap goal node: ").strip())
@@ -213,6 +221,7 @@ def main():
 
     if node_path is None:
         print("Khong tim duoc duong di.")
+        print("So node da duyet:", visited_count)
         return
 
     
@@ -220,7 +229,7 @@ def main():
     print("Tong chi phi:", total_cost)
     print("So node da duyet:", visited_count)
     print("Node path:", node_path)
-   
+    
 
 
 if __name__ == "__main__":
