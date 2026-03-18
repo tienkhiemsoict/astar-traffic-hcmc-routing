@@ -1,0 +1,121 @@
+/* fit-content fix */
+.st-emotion-cache-zh2fnc {
+    width: 100%;
+}
+
+/* image sidebar */
+
+.st-emotion-cache-uwwqev {
+    display: flex;
+    justify-content: center;
+}
+
+/* Hide Deploy button */
+.stAppDeployButton,
+.st-emotion-cache-1rgl1ry,
+.st-emotion-cache-egm30d {
+    visibility: hidden;
+}
+
+/* Main block padding */
+.st-emotion-cache-zy6yx3 {
+    padding: 4rem 2rem 4rem;
+}
+
+/* Map iframe border-radius */
+[data-testid="stCustomComponentV1"] > div > iframe,
+[data-testid="stIFrame"] iframe,
+iframe {
+    border-radius: 15px !important;
+    overflow: hidden !important;
+}
+
+/* Header: center, font-size, border-bottom */
+.stMainBlockContainer h1:first-of-type {
+    text-align: center;
+    font-size: 36px !important;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid #2a2d35;
+    margin-bottom: 1rem;
+}
+
+.stMainBlockContainer h1:first-of-type
+
+/* Image */
+.st-emotion-cache-uwwqev {
+    display: flex;
+    justify-content: center;
+    object-fit: cover;
+    height: 360px;
+}
+
+/* Run Solution Button */
+
+.st-emotion-cache-1krtkoa, .st-emotion-cache-1cl4umz {
+    background-color: rgb(46 211 111);
+    border: none;
+    /* box-shadow: 0 1px 2px 0 rgb(80 128 107); */
+    /* transition: box-shadow linear 0.3s; */
+    transition: transform linear 0.3s;
+    transition: background-color linear 0.15s;
+    will-change: transform;
+}
+
+.st-emotion-cache-1krtkoa:hover, .st-emotion-cache-1cl4umz:hover {
+    background-color: rgb(0 205 81);
+    /* box-shadow: 0 1px 8px 0 rgb(80 128 107); */
+    transform: translateY(-1px);
+    border: none;
+}
+
+/* Start, End Button */
+
+.st-emotion-cache-6ms01g, .st-emotion-cache-9114l4 {
+    background-color: rgb(255, 75, 75);
+    transition: transform linear 0.3s;
+    transition: background-color linear 0.15s;
+    will-change: transform;
+}
+
+.st-emotion-cache-9114l4 {
+    color: #fff;
+}
+
+.st-emotion-cache-6ms01g:hover, .st-emotion-cache-9114l4:hover {
+    background-color: rgb(240 67 67);
+    transform: translateY(-1px);
+
+}
+
+.st-emotion-cache-1permvm {
+    padding-bottom: 8px;
+}
+
+/* Reset button */
+
+.st-emotion-cache-1anq8dj, .st-emotion-cache-5qfegl  {
+    background-color: rgb(38, 39, 48);
+    transition: transform linear 0.3s;
+    transition: background-color linear 0.15s;
+    will-change: transform;
+}
+
+.st-emotion-cache-1anq8dj:hover, .st-emotion-cache-5qfegl:hover {
+    background-color: rgb(38, 39, 56);
+    transform: translateY(-1px);
+}
+
+.st-emotion-cache-5qfegl {
+    background-color: rgb(240, 242, 246);
+}
+
+.st-emotion-cache-5qfegl:hover {
+    background-color: rgba(240, 242, 246, 0.8);
+}
+
+/* Ket Qua */
+
+#ket-qua {
+    display: flex;
+    justify-content: center;
+}

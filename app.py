@@ -15,6 +15,17 @@ from load_graph import load_graph
 
 st.set_page_config(layout="wide", page_title="HCMC Routing Comparison")
 
+# Style - CSS
+with open("static/style.css", encoding="utf-8") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+# Header
+st.title("Ho Chi Minh Routing Comparison")
+# ________________________________________________________________________________
+
+
 @st.cache_resource 
 def build_spatial_index(nodes_df):
     # Lấy mảng tọa độ [[lat1, lon1], [lat2, lon2], ...]
@@ -89,6 +100,9 @@ def load_data(time_slot):
 
     return coords, adj, nodes_df, edges_lookup,traffic_geojson, bounds , spatial_index
 
+# Logo siu cấp AI
+st.sidebar.image(r"static\assets\Logo_Đại_học_Bách_Khoa_Hà_Nội.svg.png", width = 200)
+
 # Chọn khung thời gian
 time_options = []
 for i in range(48):
@@ -103,7 +117,7 @@ selected_time = st.sidebar.select_slider(
     "Kéo để chọn thời gian:",
     options=time_options,
     value=time_options[st.session_state.get('old_slot', 17) - 1],
-    help="Dữ liệu giao thông cập nhật mỗi 30 phút"
+    # help="Dữ liệu giao thông cập nhật mỗi 30 phút"
 )
 # chuyển ngược từ hh:mm -> 0-47 để chạy thuật toán
 slot = time_options.index(selected_time) + 1
@@ -129,6 +143,8 @@ if 'selecting' not in st.session_state: st.session_state.selecting = None
 
 if 'last_click_id' not in st.session_state: st.session_state.last_click_id = None
 
+st.sidebar.title("Chọn vị trí")
+
 c1, c2 = st.sidebar.columns(2)
 with c1: 
     if st.button(" Điểm đầu",use_container_width= True): 
@@ -152,16 +168,7 @@ with c2:
              if click_old:
                 st.session_state.last_click_id = f"{click_old['lat']}_{click_old['lng']}"
 
-if st.sidebar.button("Reset", use_container_width=True):
-    
-        st.session_state.start_coord = None
-        st.session_state.end_coord = None
-        st.session_state.path_coords = None
-        st.session_state.comparison_df = None
-        st.session_state.selecting = None
-        st.rerun()
-
-if st.sidebar.button("Chạy thuật toán", type="primary"):
+if st.sidebar.button("Chạy thuật toán", type="primary", use_container_width=True):
     if st.session_state.start_coord and st.session_state.end_coord:
         if st.session_state.start_coord and st.session_state.end_coord:
             u_s = st.session_state.get('start_node_id')
@@ -208,7 +215,6 @@ if st.sidebar.button("Chạy thuật toán", type="primary"):
             st.session_state.path_coords = path_geo
         st.rerun()
 
-if st.session_state.comparison_df is not None: st.sidebar.table(st.session_state.comparison_df)
 
 @st.fragment
 def show_map():
@@ -227,10 +233,10 @@ def show_map():
         folium.Marker(st.session_state.end_coord, icon=folium.Icon(color='red')).add_to(m)
 
     if st.session_state.path_coords:
-        folium.PolyLine(st.session_state.path_coords, color='blue', weight=6, opacity=1).add_to(m)
+        folium.PolyLine(st.session_state.path_coords, color='blue', weight=10, opacity=1).add_to(m)
         m.fit_bounds(st.session_state.path_coords)
 
-    out = st_folium(m, width="100%", height=600, key="main_map", returned_objects=["last_clicked"])
+    out = st_folium(m, width="100%", height=800, key="main_map", returned_objects=["last_clicked"])
 
 
     if out and out.get('last_clicked'):
@@ -258,3 +264,15 @@ def show_map():
             st.rerun()
     
 show_map()
+
+if st.session_state.comparison_df is not None: 
+    st.write("### Kết quả")
+    st.table(st.session_state.comparison_df)
+    if st.button("Reset", use_container_width=True):
+    
+        st.session_state.start_coord = None
+        st.session_state.end_coord = None
+        st.session_state.path_coords = None
+        st.session_state.comparison_df = None
+        st.session_state.selecting = None
+        st.rerun()
