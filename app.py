@@ -20,12 +20,6 @@ with open("static/style.css", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 # ──────────────────────────────────────────────────────────────────────────────
 
-
-# Header
-st.title("Ho Chi Minh Routing Comparison")
-# ________________________________________________________________________________
-
-
 @st.cache_resource 
 def build_spatial_index(nodes_df):
     # Lấy mảng tọa độ [[lat1, lon1], [lat2, lon2], ...]
@@ -101,7 +95,37 @@ def load_data(time_slot):
     return coords, adj, nodes_df, edges_lookup,traffic_geojson, bounds , spatial_index
 
 # Logo siu cấp AI
-st.sidebar.image(r"static\assets\Logo_Đại_học_Bách_Khoa_Hà_Nội.svg.png", width = 200)
+st.sidebar.image(r"static\assets\Logo_Đại_học_Bách_Khoa_Hà_Nội.svg.png", width = 200 ,)
+
+@st.dialog(" Phân tích & So sánh Thuật toán", width="large")
+def show_comparison_dialog(df):
+    st.write("Dưới đây là bảng so sánh hiệu năng giữa các thuật toán tìm đường trên lưới giao thông TP.HCM.")
+    
+    # 1. Hiển thị Metrics (Các chỉ số nhanh)
+    c1, c2, c3 = st.columns(3)
+    fastest = df.loc[df['Time (ms)'].idxmin()]
+    c1.metric("Nhanh nhất", fastest['Thuật toán'], f"{fastest['Time (ms)']} ms")
+    c2.metric("Quãng đường", f"{df['Quãng đường (km)'].min()} km")
+    c3.metric("Nodes duyệt ít nhất", int(df['Nodes'].min()))
+    
+    st.divider()
+
+    # 2. Biểu đồ so sánh
+    col_chart1, col_chart2 = st.columns(2)
+    with col_chart1:
+        st.write("**Thời gian thực thi (ms)**")
+        st.bar_chart(df, x="Thuật toán", y="Time (ms)", color="#2ecc71")
+    with col_chart2:
+        st.write("**Số lượng Node đã duyệt**")
+        st.bar_chart(df, x="Thuật toán", y="Nodes", color="#3498db")
+
+    # 3. Bảng dữ liệu chi tiết
+    st.write("**Chi tiết thông số kỹ thuật:**")
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    if st.button("Đóng cửa sổ"):
+        st.rerun()
+
 
 # Chọn khung thời gian
 time_options = []
@@ -121,6 +145,7 @@ selected_time = st.sidebar.select_slider(
 )
 # chuyển ngược từ hh:mm -> 0-47 để chạy thuật toán
 slot = time_options.index(selected_time) + 1
+
 
 #Logic reset đổi giờ
 if 'old_slot' not in st.session_state:
@@ -167,6 +192,13 @@ with c2:
              click_old = st.session_state['main_map']['last_clicked']
              if click_old:
                 st.session_state.last_click_id = f"{click_old['lat']}_{click_old['lng']}"
+
+
+
+if 'map_center' not in st.session_state: 
+    st.session_state.map_center = [nodes_df['y'].mean(), nodes_df['x'].mean()]
+if 'map_zoom' not in st.session_state: 
+    st.session_state.map_zoom = 15
 
 if st.sidebar.button("Chạy thuật toán", type="primary", use_container_width=True):
     if st.session_state.start_coord and st.session_state.end_coord:
@@ -215,16 +247,75 @@ if st.sidebar.button("Chạy thuật toán", type="primary", use_container_width
             st.session_state.path_coords = path_geo
         st.rerun()
 
+with st.sidebar: 
+       
+    if st.button("So sánh thuật toán", use_container_width=True, type="secondary"):
+        show_comparison_dialog(st.session_state.comparison_df)
+            
+    if st.button("Reset Bản đồ", use_container_width=True):
+        st.session_state.start_coord = None
+        st.session_state.end_coord = None
+        st.session_state.path_coords = None
+        st.session_state.comparison_df = None
+        st.rerun()
 
 @st.fragment
 def show_map():
-    m = folium.Map(location=[nodes_df['y'].mean(), nodes_df['x'].mean()], zoom_start=15,min_zoom=10,max_zoom=18, max_bounds=True)
+    min_lat = map_bounds[0][0]
+    max_lat = map_bounds[1][0]
+    min_lon = map_bounds[0][1]
+    max_lon = map_bounds[1][1]
+ 
+    # Phát hiện theme (light/dark) qua st.get_option nếu có; fallback về dark
+    try:    
+        theme = st.get_option("theme.base")
+    except Exception:
+        theme = "dark"
+    overlay_color = "#ffffff" if theme == "light" else "#0e1117"
+    # ------------------------------------------------------------------------------------
     
+    m = folium.Map(location=st.session_state.map_center, zoom_start=14,min_zoom=13,max_zoom=18, max_bounds=True, min_lat=min_lat, max_lat=max_lat, min_lon=min_lon, max_lon=max_lon,)
+    
+    m.get_root().html.add_child(folium.Element("""
+    <style>
+        .leaflet-control-attribution { display: none !important; }
+    </style>
+"""))
+
     folium.GeoJson(
         traffic_data,
         style_function=lambda x: x['properties']['style'],
     ).add_to(m)
-    folium.Rectangle(bounds=map_bounds, color="red", weight=2, fill=False).add_to(m)
+    
+    OUTER = 10
+    for panel in [
+        [[max_lat, min_lon - OUTER], [max_lat + OUTER, max_lon + OUTER]],
+        [[min_lat - OUTER, min_lon - OUTER], [min_lat, max_lon + OUTER]],
+        [[min_lat, min_lon - OUTER], [max_lat, min_lon]],
+        [[min_lat, max_lon], [max_lat, max_lon + OUTER]],
+    ]:
+        folium.Rectangle(bounds=panel, color=overlay_color, weight=0,
+                         fill=True, fill_color=overlay_color, fill_opacity=0.82,
+                         interactive=False).add_to(m)
+ 
+    r = 0.0008
+    svg_path = (
+        f"M {min_lon+r},{min_lat} L {max_lon-r},{min_lat} "
+        f"Q {max_lon},{min_lat} {max_lon},{min_lat+r} "
+        f"L {max_lon},{max_lat-r} Q {max_lon},{max_lat} {max_lon-r},{max_lat} "
+        f"L {min_lon+r},{max_lat} Q {min_lon},{max_lat} {min_lon},{max_lat-r} "
+        f"L {min_lon},{min_lat+r} Q {min_lon},{min_lat} {min_lon+r},{min_lat} Z"
+    )
+    svg_str = (
+        f'<svg xmlns="http://www.w3.org/2000/svg">'
+        f'<path d="{svg_path}" fill="none" stroke="#e74c3c" stroke-width="3" vector-effect="non-scaling-stroke"/>'
+        f'</svg>'
+    )
+    folium.raster_layers.ImageOverlay(
+        image="data:image/svg+xml;charset=utf-8," + svg_str.replace(" ", "%20").replace('"', "%22").replace("#", "%23").replace("<", "%3C").replace(">", "%3E"),
+        bounds=[[min_lat, min_lon], [max_lat, max_lon]],
+        opacity=1, interactive=False, zindex=500,
+    ).add_to(m)
 
 
     if st.session_state.start_coord:
@@ -236,7 +327,7 @@ def show_map():
         folium.PolyLine(st.session_state.path_coords, color='blue', weight=10, opacity=1).add_to(m)
         m.fit_bounds(st.session_state.path_coords)
 
-    out = st_folium(m, width="100%", height=800, key="main_map", returned_objects=["last_clicked"])
+    out = st_folium(m, width="100%", height=600, key="main_map", returned_objects=["last_clicked"])
 
 
     if out and out.get('last_clicked'):
@@ -262,17 +353,7 @@ def show_map():
             st.session_state.last_click_id = current_click_id
             st.session_state.selecting = None
             st.rerun()
-    
-show_map()
 
-if st.session_state.comparison_df is not None: 
-    st.write("### Kết quả")
-    st.table(st.session_state.comparison_df)
-    if st.button("Reset", use_container_width=True):
-    
-        st.session_state.start_coord = None
-        st.session_state.end_coord = None
-        st.session_state.path_coords = None
-        st.session_state.comparison_df = None
-        st.session_state.selecting = None
-        st.rerun()
+
+
+show_map()
