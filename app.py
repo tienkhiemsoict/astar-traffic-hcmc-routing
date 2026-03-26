@@ -218,7 +218,7 @@ if st.sidebar.button("Chạy thuật toán", type="primary", use_container_width
 
 @st.fragment
 def show_map():
-    m = folium.Map(location=[nodes_df['y'].mean(), nodes_df['x'].mean()], zoom_start=15,min_zoom=15,max_zoom=18, max_bounds=True)
+    m = folium.Map(location=[nodes_df['y'].mean(), nodes_df['x'].mean()], zoom_start=15,min_zoom=10,max_zoom=18, max_bounds=True)
     
     folium.GeoJson(
         traffic_data,
