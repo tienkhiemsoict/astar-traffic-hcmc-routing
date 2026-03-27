@@ -1,17 +1,10 @@
 import heapq
 
-# =========================
-# 1) Dijkstra Search Algorithm
-# =========================
-
 def dijkstra_search(coords, adj, start, goal):
-    # Priority Queue: (distance, current_node)
     open_set = [(0, start)]
-    
-    came_from = {}
     distances = {node: float('inf') for node in coords}
     distances[start] = 0
-    
+    came_from = {}
     visited_count = 0
 
     while open_set:
@@ -19,10 +12,11 @@ def dijkstra_search(coords, adj, start, goal):
 
         if current_dist > distances[current]:
             continue
-            
+        
         visited_count += 1
-
+        
         if current == goal:
+            # Khôi phục đường đi
             path = []
             while current in came_from:
                 path.append(current)
@@ -32,7 +26,6 @@ def dijkstra_search(coords, adj, start, goal):
 
         for neighbor, weight in adj.get(current, []):
             distance = current_dist + weight
-            
             if distance < distances[neighbor]:
                 distances[neighbor] = distance
                 came_from[neighbor] = current
