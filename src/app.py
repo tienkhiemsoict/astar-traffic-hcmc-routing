@@ -122,21 +122,26 @@ def show_comparison_dialog(df):
 
 # ────────────────────── SIDEBAR BUTTONS ──────────────────────
 
-st.sidebar.title("Chọn vị trí")
-c1, c2 = st.sidebar.columns(2)
-with c1: 
-    if st.button("Điểm đầu", use_container_width=True): 
-        st.session_state.selecting = 'start'
-        st.session_state.path_coords = None
-        st.session_state.comparison_df = None
-        st.session_state.start_coord = None
-        st.session_state.end_coord = None
-with c2: 
-    if st.button("Điểm cuối", use_container_width=True): 
-        st.session_state.selecting = 'end'
-        st.session_state.path_coords = None
-        st.session_state.comparison_df = None
-        st.session_state.end_coord = None
+@st.fragment
+def render_location_buttons():
+    st.title("Chọn vị trí")
+    c1, c2 = st.columns(2)
+    with c1: 
+        if st.button("Điểm đầu", use_container_width=True): 
+            st.session_state.selecting = 'start'
+            st.session_state.path_coords = None
+            st.session_state.comparison_df = None
+            st.session_state.start_coord = None
+            st.session_state.end_coord = None
+    with c2: 
+        if st.button("Điểm cuối", use_container_width=True): 
+            st.session_state.selecting = 'end'
+            st.session_state.path_coords = None
+            st.session_state.comparison_df = None
+            st.session_state.end_coord = None
+
+with st.sidebar:
+    render_location_buttons()
 
 if st.sidebar.button("Chạy thuật toán", type="primary", use_container_width=True):
     if st.session_state.start_coord and st.session_state.end_coord:
@@ -191,6 +196,27 @@ with st.sidebar:
 
 @st.fragment
 def show_map():
+    # 1. Xử lý sự kiện click từ session_state trước khi khởi tạo map
+    if "main_map" in st.session_state and st.session_state.main_map.get("last_clicked"):
+        click_data = st.session_state.main_map["last_clicked"]
+        current_click_id = f"{click_data['lat']}_{click_data['lng']}"
+
+        if st.session_state.selecting is not None and current_click_id != st.session_state.last_click_id:
+            dist, idx = spatial_index.query([click_data['lat'], click_data['lng']])
+            nearest_node_id = nodes_df.index[idx]
+            nearest_coords = (nodes_df.iloc[idx]['y'], nodes_df.iloc[idx]['x'])
+            
+            if st.session_state.selecting == 'start':
+                st.session_state.start_coord = nearest_coords
+                st.session_state.start_node_id = nearest_node_id
+            elif st.session_state.selecting == 'end':
+                st.session_state.end_coord = nearest_coords
+                st.session_state.end_node_id = nearest_node_id
+            
+            st.session_state.last_click_id = current_click_id
+            st.session_state.selecting = None
+
+    # 2. Vẽ bản đồ
     min_lat, max_lat = map_bounds[0][0], map_bounds[1][0]
     min_lon, max_lon = map_bounds[0][1], map_bounds[1][1]
     
@@ -214,7 +240,7 @@ def show_map():
         [[min_lat, max_lon], [max_lat, max_lon + OUTER]],
     ]:
         folium.Rectangle(bounds=panel, color=overlay_color, weight=0, fill=True, 
-                        fill_color=overlay_color, fill_opacity=0.82, interactive=False).add_to(m)
+                         fill_color=overlay_color, fill_opacity=0.82, interactive=False).add_to(m)
     
     r = 0.0008
     svg_path = f"M {min_lon+r},{min_lat} L {max_lon-r},{min_lat} Q {max_lon},{min_lat} {max_lon},{min_lat+r} L {max_lon},{max_lat-r} Q {max_lon},{max_lat} {max_lon-r},{max_lat} L {min_lon+r},{max_lat} Q {min_lon},{max_lat} {min_lon},{max_lat-r} L {min_lon},{min_lat+r} Q {min_lon},{min_lat} {min_lon+r},{min_lat} Z"
@@ -231,26 +257,6 @@ def show_map():
         folium.PolyLine(st.session_state.path_coords, color='blue', weight=10, opacity=1).add_to(m)
         m.fit_bounds(st.session_state.path_coords)
 
-    out = st_folium(m, width="100%", height=600, key="main_map", returned_objects=["last_clicked"])
-
-    if out and out.get('last_clicked'):
-        click_data = out['last_clicked']
-        current_click_id = f"{click_data['lat']}_{click_data['lng']}"
-
-        if st.session_state.selecting is not None and current_click_id != st.session_state.last_click_id:
-            dist, idx = spatial_index.query([click_data['lat'], click_data['lng']])
-            nearest_node_id = nodes_df.index[idx]
-            nearest_coords = (nodes_df.iloc[idx]['y'], nodes_df.iloc[idx]['x'])
-            
-            if st.session_state.selecting == 'start':
-                st.session_state.start_coord = nearest_coords
-                st.session_state.start_node_id = nearest_node_id
-            elif st.session_state.selecting == 'end':
-                st.session_state.end_coord = nearest_coords
-                st.session_state.end_node_id = nearest_node_id
-            
-            st.session_state.last_click_id = current_click_id
-            st.session_state.selecting = None
-            st.rerun()
+    st_folium(m, width="100%", height=600, key="main_map", returned_objects=["last_clicked"])
 
 show_map()
