@@ -1,144 +1,196 @@
-ASTAR TRAFFIC HCMC ROUTING - HƯỚNG DẪN CÀI ĐẶT VÀ CHẠY CHƯƠNG TRÌNH
+# ASTAR Traffic HCMC Routing
 
-1. YÊU CẦU HỆ THỐNG
+Ứng dụng thuật toán DWA* tìm đường tối ưu trên bản đồ TP. Hồ Chí Minh
 
-- Python 3.8 hoặc cao hơn
+## Mục lục
+
+- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
+- [Gói phần mềm](#gói-phần-mềm)
+- [Cài đặt](#cài-đặt)
+- [Chạy chương trình](#chạy-chương-trình)
+- [Cấu trúc dữ liệu](#cấu-trúc-dữ-liệu)
+- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+- [Xử lý sự cố](#xử-lý-sự-cố)
+- [Lưu ý](#lưu-ý)
+
+---
+
+## Yêu cầu hệ thống
+
+- Python 3.8 trở lên
 - pip (trình quản lý gói Python)
-- Windows, macOS, hoặc Linux
+- Windows, macOS hoặc Linux
 
-2. DANH SÁCH GÓI PHẦN MỀM ĐƯỢC SỬ DỤNG
+---
 
-- streamlit (1.28.0+): Framework phát triển ứng dụng web
-- pandas (1.5.0+): Thư viện xử lý dữ liệu
-- folium (0.14.0+): Thư viện tạo bản đồ tương tác
-- streamlit-folium (0.7.0+): Tích hợp folium với streamlit
-- shapely (2.0.0+): Thư viện xử lý hình học không gian
-- scipy (1.10.0+): Thư viện tính toán khoa học
-- osmnx (1.7.0+): Thư viện xử lý dữ liệu OpenStreetMap
+## Gói phần mềm
 
-3. CÀI ĐẶT
+| Gói | Phiên bản | Mô tả |
+|-----|-----------|-------|
+| streamlit | 1.28.0+ | Framework phát triển ứng dụng web |
+| pandas | 1.5.0+ | Thư viện xử lý dữ liệu |
+| folium | 0.14.0+ | Thư viện tạo bản đồ tương tác |
+| streamlit-folium | 0.7.0+ | Tích hợp folium với streamlit |
+| shapely | 2.0.0+ | Thư viện xử lý hình học không gian |
+| scipy | 1.10.0+ | Thư viện tính toán khoa học |
+| osmnx | 1.7.0+ | Thư viện xử lý dữ liệu OpenStreetMap |
 
-Bước 1: Tải source code
+---
+
+## Cài đặt
+
+### Bước 1: Tải source code
 
 Sao chép repository hoặc giải nén file dự án
 
-Bước 2: Tạo môi trường ảo (Virtual Environment)
+### Bước 2: Tạo môi trường ảo
 
 Mở terminal tại thư mục dự án và chạy lệnh:
 
-Windows:
-  python -m venv venv
-  venv\Scripts\activate
+**Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
 
-Linux/macOS:
-  python3 -m venv venv
-  source venv/bin/activate
+**Linux/macOS:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
 
-Bước 3: Cài đặt các gói phần mềm
+### Bước 3: Cài đặt các gói phần mềm
 
-Chạy lệnh sau để cài đặt tất cả các thư viện cần thiết:
+```bash
+pip install -r requirements.txt
+```
 
-  pip install -r requirements.txt
+Để kiểm tra cài đặt thành công:
 
-Quá trình cài đặt sẽ tải và cài đặt tất cả gói được liệt kê trong file requirements.txt
+```bash
+python -c "import streamlit; import pandas; import folium; print('Cài đặt thành công')"
+```
 
-4. BIÊN DỊCH
+---
 
-Chương trình được viết bằng Python, không cần biên dịch trước. Các module sẽ được nạp khi chương trình chạy.
+## Chạy chương trình
 
-Để kiểm tra cài đặt đúng, chạy:
-  python -c "import streamlit; import pandas; import folium; print('Cài đặt thành công')"
+### Bước 1: Kích hoạt môi trường ảo
 
-Nếu không có lỗi, tất cả thư viện đã được cài đặt đúng.
+**Windows:**
+```bash
+venv\Scripts\activate
+```
 
-5. CẤU TRÚC DỮ LIỆU
+**Linux/macOS:**
+```bash
+source venv/bin/activate
+```
 
-Dữ liệu được lưu trong thư mục data/:
+### Bước 2: Chạy ứng dụng
 
-data/original/: Chứa file OSM (OpenStreetMap) gốc và file huấn luyện
-  - hcm_map1.osm, hcm_map2.osm, hcm_map3.osm, hcm_map4.osm: Dữ liệu bản đồ
-  - oritrain.csv: Dữ liệu mức độ tắc đường (LOS - Level of Service)
+Từ thư mục gốc dự án, chạy một trong các lệnh sau:
 
-data/processed/: Chứa dữ liệu đã xử lý
-  - nodes.csv: Danh sách các nút (giao lộ) với tọa độ
-  - edges.csv: Danh sách các cạnh (đoạn đường) với trọng số theo thời gian
-  - edges_raw.csv: Dữ liệu cạnh thô trước khi xử lý
-  - train.csv: Dữ liệu LOS được xử lý
+```bash
+python src/main.py
+```
 
-Ghi chú: Nếu data/processed/ không có dữ liệu, chạy notebook DataPreprocessing.ipynb để xử lý dữ liệu gốc.
+Hoặc:
 
-6. CHẠY CHƯƠNG TRÌNH
+```bash
+streamlit run src/app.py
+```
 
-Bước 1: Đảm bảo môi trường ảo đã được kích hoạt
+### Bước 3: Truy cập ứng dụng
 
-Windows:
-  venv\Scripts\activate
+Ứng dụng sẽ tự động mở trong trình duyệt tại:
 
-Linux/macOS:
-  source venv/bin/activate
-
-Bước 2: Chạy ứng dụng
-
-Từ thư mục gốc của dự án, chạy:
-
-  python src/main.py
-
-Hoặc chạy trực tiếp:
-
-  streamlit run src/app.py
-
-Bước 3: Truy cập ứng dụng
-
-Ứng dụng sẽ tự động mở trong trình duyệt tại địa chỉ:
-  http://localhost:8501
+```
+http://localhost:8501
+```
 
 Nếu không tự động mở, mở trình duyệt và nhập địa chỉ trên.
 
-7. CHỨC NĂNG CHÍNH
+---
 
-Ứng dụng so sánh ba thuật toán tìm đường tối ưu trên bản đồ TP. Hồ Chí Minh:
+## Cấu trúc dữ liệu
 
-- Dijkstra: Thuật toán tìm đường ngắn nhất cơ bản
-- A*: Thuật toán tìm đường với heuristic Euclidean
-- DWA*: Thuật toán tìm đường với heuristic động (Dynamic Weighted A*)
+### data/original/
 
-8. CẤU TRÚC THƯ MỤC
+Chứa dữ liệu gốc từ OpenStreetMap và dữ liệu huấn luyện:
 
-src/
-  app.py: Mã nguồn ứng dụng Streamlit chính
-  main.py: Điểm khởi động chương trình
-  load_graph.py: Hàm tải dữ liệu đồ thị từ file CSV
-  algorithms/: Thư mục chứa các thuật toán
-    - Dijkstra.py: Cài đặt thuật toán Dijkstra
-    - AStarOrigin.py: Cài đặt thuật toán A*
-    - DWAStar.py: Cài đặt thuật toán DWA*
+- `hcm_map1.osm`, `hcm_map2.osm`, `hcm_map3.osm`, `hcm_map4.osm` - Dữ liệu bản đồ
+- `oritrain.csv` - Dữ liệu mức độ tắc đường (LOS - Level of Service)
 
-data/
-  original/: Dữ liệu gốc từ OpenStreetMap
-  processed/: Dữ liệu đã xử lý
-  notebooks/: Notebook Jupyter để xử lý dữ liệu
-    - DataPreprocessing.ipynb: Tiền xử lý dữ liệu
-    - EDA.ipynb: Phân tích khám phá dữ liệu
+### data/processed/
 
-static/
-  style.css: Tệp tùy chỉnh giao diện
+Chứa dữ liệu đã xử lý:
 
-9. XỬ LÝ SỰ CỐ
+- `nodes.csv` - Danh sách nút (giao lộ) với tọa độ
+- `edges.csv` - Danh sách cạnh (đoạn đường) với trọng số theo thời gian
+- `edges_raw.csv` - Dữ liệu cạnh thô trước khi xử lý
+- `train.csv` - Dữ liệu LOS được xử lý
 
-Lỗi: "ModuleNotFoundError" khi chạy chương trình
-Giải pháp: Kiểm tra môi trường ảo đã kích hoạt. Chạy lại: pip install -r requirements.txt
+**Ghi chú:** Nếu thư mục `data/processed/` không có dữ liệu, chạy notebook `DataPreprocessing.ipynb` để xử lý dữ liệu gốc.
 
-Lỗi: "No such file or directory: data/processed/nodes.csv"
-Giải pháp: Chạy notebook DataPreprocessing.ipynb để tạo dữ liệu xử lý
+---
 
-Lỗi: "Port 8501 already in use"
-Giải pháp: Chạy: streamlit run src/app.py --server.port 8502
+## Cấu trúc thư mục
 
-Lỗi: Ứng dụng mở chậm
-Giải pháp: Đây là hành vi bình thường với lần chạy đầu tiên. Dữ liệu sẽ được cache lại.
+```
+astar-traffic-hcmc-routing/
+├── src/
+│   ├── app.py                    # Ứng dụng Streamlit chính
+│   ├── main.py                   # Điểm khởi động
+│   ├── load_graph.py             # Tải dữ liệu đồ thị từ CSV
+│   └── algorithms/
+│       ├── Dijkstra.py           # Thuật toán Dijkstra
+│       ├── AStarOrigin.py         # Thuật toán A*
+│       └── DWAStar.py             # Thuật toán DWA*
+├── data/
+│   ├── original/                 # Dữ liệu gốc OSM
+│   ├── processed/                # Dữ liệu đã xử lý
+│   └── notebooks/
+│       ├── DataPreprocessing.ipynb    # Tiền xử lý dữ liệu
+│       └── EDA.ipynb                  # Phân tích khám phá dữ liệu
+├── static/
+│   └── style.css                 # Tùy chỉnh giao diện
+├── requirements.txt              # Danh sách gói phần mềm
+└── README.md                     # Hướng dẫn này
+```
 
-10. LƯU Ý BỔ SUNG
+---
+
+## Xử lý sự cố
+
+### ModuleNotFoundError khi chạy chương trình
+
+**Giải pháp:** Kiểm tra môi trường ảo đã kích hoạt. Chạy lại:
+
+```bash
+pip install -r requirements.txt
+```
+
+### "No such file or directory: data/processed/nodes.csv"
+
+**Giải pháp:** Chạy notebook `DataPreprocessing.ipynb` để tạo dữ liệu xử lý.
+
+### "Port 8501 already in use"
+
+**Giải pháp:** Chạy trên cổng khác:
+
+```bash
+streamlit run src/app.py --server.port 8502
+```
+
+### Ứng dụng mở chậm
+
+**Giải pháp:** Đây là hành vi bình thường với lần chạy đầu tiên. Dữ liệu sẽ được cache lại.
+
+---
+
+## Lưu ý
 
 - Ứng dụng yêu cầu kết nối internet để tải bản đồ nền từ OpenStreetMap
-- Dữ liệu cache được lưu trong thư mục .streamlit mục đích tăng tốc độ
-- Khi dừng ứng dụng, nhấn Ctrl+C ở terminal
+- Dữ liệu được cache trong thư mục `.streamlit` để tăng tốc độ
+- Để dừng ứng dụng, nhấn `Ctrl+C` ở terminal
