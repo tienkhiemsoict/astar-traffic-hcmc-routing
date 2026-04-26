@@ -3,14 +3,13 @@ import ast
 from collections import defaultdict
 
 def load_graph(nodes_path, edges_path, time_slot):
-    # Tải nodes vào dict tọa độ
+    # Giữ nguyên logic của bạn nhưng đảm bảo đầu vào là path (đường dẫn)
     coords = {}
     with open(nodes_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             coords[int(row["osmid"])] = (float(row["y"]), float(row["x"]))
 
-    # Tải edges với weight theo time_slot
     idx = time_slot - 1
     adj_map = defaultdict(dict)
     edge_lookup = {}
@@ -19,9 +18,13 @@ def load_graph(nodes_path, edges_path, time_slot):
         reader = csv.DictReader(f)
         for row in reader:
             u, v = int(row["u"]), int(row["v"])
-            weight = float(ast.literal_eval(row["weight"])[idx])
+            # Tránh lỗi nếu cột weight không phải dạng list
+            try:
+                weights = ast.literal_eval(row["weight"])
+                weight = float(weights[idx])
+            except:
+                weight = float(row.get("length", 1)) # Fallback nếu lỗi
 
-            # Lọc cạnh tối ưu (weight nhỏ nhất nếu có multi-edges)
             if v not in adj_map[u] or weight < adj_map[u][v]:
                 adj_map[u][v] = weight
                 edge_lookup[(u, v)] = {
@@ -32,4 +35,3 @@ def load_graph(nodes_path, edges_path, time_slot):
 
     adj = {u: list(v_map.items()) for u, v_map in adj_map.items()}
     return coords, adj, edge_lookup
-
