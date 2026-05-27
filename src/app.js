@@ -173,9 +173,11 @@ function setSelectionMode(mode) {
 }
 
 function resetMap() {
+    appState.map.setView(CONFIG.MAP.CENTER, CONFIG.MAP.INITIAL_ZOOM);
     appState.reset();
     updateStatus('Trạng thái: Sẵn sàng', '#7f8c8d');
 }
+
 
 async function handleMapClick(event) {
     if (!appState.selectingMode) return;
@@ -255,9 +257,9 @@ async function calculateRoute() {
 
         if (data.path_coords && data.path_coords.length > 0) {
             appState.routeLine = L.polyline(data.path_coords, {
-                color: '#3498db',
-                weight: 6,
-                opacity: 0.9
+                color: '#1632cf',
+                weight: 8,
+                opacity: 0.95
             }).addTo(appState.map);
 
             appState.map.fitBounds(appState.routeLine.getBounds(), {
