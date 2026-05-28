@@ -42,6 +42,9 @@ class RouteRequest(BaseModel):
 
 @app.get("/api/traffic-geojson")
 async def get_traffic_geojson(slot: int):
+    get_cached_data(slot)
+    
+    coords, adj, edge_lookup = get_cached_data(slot)
     idx = slot - 1
     features = []
     important_highways = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']
@@ -85,7 +88,7 @@ async def get_traffic_geojson(slot: int):
 
 @lru_cache(maxsize=10)
 def get_cached_data(slot):
-    print(f"📦 Đang tải dữ liệu đồ thị cho slot: {slot}")
+    print(f" Đang tải dữ liệu đồ thị cho slot: {slot}")
     # Truyền đuờng dẫn file vào hàm của bạn
     return load_graph(nodes_path, edges_path, slot)
 

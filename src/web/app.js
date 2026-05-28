@@ -25,7 +25,7 @@ const CONFIG = {
     },
     TIMING: {
         TRAFFIC_UPDATE_DEBOUNCE: 100,
-        DEFAULT_SLOT: 17
+        DEFAULT_SLOT: 16
     }
 };
 
@@ -37,6 +37,8 @@ class AppState {
         this.map = null;
         this.trafficLayer = null;
         this.trafficTimer = null;
+        this.trafficAbortController = null;
+        this.trafficCache = {};
         this.markers = {
             start: null,
             end: null
@@ -207,6 +209,10 @@ async function calculateRoute() {
     }
 
     appState.clearRoute();
+    
+    if (appState.trafficAbortController) {
+        appState.trafficAbortController.abort();
+    }
 
     try {
         const slot = parseInt(document.getElementById('time-slider').value);
@@ -284,23 +290,37 @@ function updateTimeDisplay(slotValue) {
         `${String(hours).padStart(2, '0')}:${minutes}`;
 
     clearTimeout(appState.trafficTimer);
-    appState.trafficTimer = setTimeout(() => {
-        updateTrafficLayer(slot);
-    }, CONFIG.TIMING.TRAFFIC_UPDATE_DEBOUNCE);
+    updateTrafficLayer(slot);
 }
 
 async function updateTrafficLayer(slot) {
     try {
+        if (appState.trafficAbortController) {
+            appState.trafficAbortController.abort();
+        }
+        
+        if (appState.trafficCache[slot]) {
+            appState.trafficLayer.clearLayers();
+            appState.trafficLayer.addData(appState.trafficCache[slot]);
+            return;
+        }
+        
+        appState.trafficAbortController = new AbortController();
         const url = `${CONFIG.API.BASE_URL}${CONFIG.API.ENDPOINTS.TRAFFIC}?slot=${slot}`;
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            signal: appState.trafficAbortController.signal
+        });
         
         if (!response.ok) return;
 
         const data = await response.json();
+        appState.trafficCache[slot] = data;
         appState.trafficLayer.clearLayers();
         appState.trafficLayer.addData(data);
     } catch (error) {
-        console.error('Traffic layer update error:', error);
+        if (error.name !== 'AbortError') {
+            console.error('Traffic layer update error:', error);
+        }
     }
 }
 
@@ -415,10 +435,24 @@ function setupEventListeners() {
 // ========================================
 // INITIALIZATION
 // ========================================
+async function preloadTrafficCache() {
+    try {
+        const url = `${CONFIG.API.BASE_URL}${CONFIG.API.ENDPOINTS.TRAFFIC}?slot=${CONFIG.TIMING.DEFAULT_SLOT}`;
+        const response = await fetch(url);
+        if (response.ok) {
+            const data = await response.json();
+            appState.trafficCache[CONFIG.TIMING.DEFAULT_SLOT] = data;
+            updateTrafficLayer(CONFIG.TIMING.DEFAULT_SLOT);
+        }
+    } catch (error) {
+        console.log(`Failed to preload traffic for default slot`);
+    }
+}
+
 function init() {
     initializeMap();
     setupEventListeners();
-    updateTrafficLayer(CONFIG.TIMING.DEFAULT_SLOT);
+    preloadTrafficCache();
 }
 
 // Wait for DOM to be ready
