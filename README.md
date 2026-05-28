@@ -10,8 +10,6 @@
 - [Chạy chương trình](#chạy-chương-trình)
 - [Cấu trúc dữ liệu](#cấu-trúc-dữ-liệu)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
-- [Xử lý sự cố](#xử-lý-sự-cố)
-- [Lưu ý](#lưu-ý)
 
 ---
 
@@ -27,12 +25,13 @@
 
 | Gói | Phiên bản | Mô tả |
 |-----|-----------|-------|
-| streamlit | 1.28.0+ | Framework phát triển ứng dụng web |
-| pandas | 1.5.0+ | Thư viện xử lý dữ liệu |
-| folium | 0.14.0+ | Thư viện tạo bản đồ tương tác |
-| streamlit-folium | 0.7.0+ | Tích hợp folium với streamlit |
+| fastapi | 0.104.0+ | Framework web API |
+| uvicorn | 0.24.0+ | ASGI server |
+| pandas | 2.0.0+ | Thư viện xử lý dữ liệu |
+| numpy | 1.24.0+ | Thư viện tính toán số |
+| scipy | 1.11.0+ | Thư viện tính toán khoa học |
 | shapely | 2.0.0+ | Thư viện xử lý hình học không gian |
-| scipy | 1.10.0+ | Thư viện tính toán khoa học |
+| pydantic | 2.5.0+ | Thư viện validate dữ liệu |
 | osmnx | 1.7.0+ | Thư viện xử lý dữ liệu OpenStreetMap |
 
 ---
@@ -65,12 +64,6 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Để kiểm tra cài đặt thành công:
-
-```bash
-python -c "import streamlit; import pandas; import folium; print('Cài đặt thành công')"
-```
-
 ---
 
 ## Chạy chương trình
@@ -89,27 +82,13 @@ source venv/bin/activate
 
 ### Bước 2: Chạy ứng dụng
 
-Từ thư mục gốc dự án, chạy một trong các lệnh sau:
+Từ thư mục gốc dự án, chạy lệnh:
 
 ```bash
-python src/main.py
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Hoặc:
-
-```bash
-streamlit run src/app.py
-```
-
-### Bước 3: Truy cập ứng dụng
-
-Ứng dụng sẽ tự động mở trong trình duyệt tại:
-
-```
-http://localhost:8501
-```
-
-Nếu không tự động mở, mở trình duyệt và nhập địa chỉ trên.
+Ứng dụng web sẽ mở tại: `http://127.0.0.1:5500/src/index.html`
 
 ---
 
@@ -131,8 +110,6 @@ Chứa dữ liệu đã xử lý:
 - `edges_raw.csv` - Dữ liệu cạnh thô trước khi xử lý
 - `train.csv` - Dữ liệu LOS được xử lý
 
-**Ghi chú:** Nếu thư mục `data/processed/` không có dữ liệu, chạy notebook `DataPreprocessing.ipynb` để xử lý dữ liệu gốc.
-
 ---
 
 ## Cấu trúc thư mục
@@ -140,9 +117,11 @@ Chứa dữ liệu đã xử lý:
 ```
 astar-traffic-hcmc-routing/
 ├── src/
-│   ├── app.py                    # Ứng dụng Streamlit chính
-│   ├── main.py                   # Điểm khởi động
-│   ├── load_graph.py             # Tải dữ liệu đồ thị từ CSV
+│   ├── web/
+│   │   ├── index.html            # Giao diện web
+│   │   ├── app.js                # Ứng dụng frontend chính
+│   │   └── style.css             # Tùy chỉnh giao diện
+│   ├── load_graph.py             # Tải dữ liệu đồ thị
 │   └── algorithms/
 │       ├── Dijkstra.py           # Thuật toán Dijkstra
 │       ├── AStarOrigin.py         # Thuật toán A*
@@ -153,44 +132,7 @@ astar-traffic-hcmc-routing/
 │   └── notebooks/
 │       ├── DataPreprocessing.ipynb    # Tiền xử lý dữ liệu
 │       └── EDA.ipynb                  # Phân tích khám phá dữ liệu
-├── static/
-│   └── style.css                 # Tùy chỉnh giao diện
-├── requirements.txt              # Danh sách gói phần mềm
-└── README.md                     # Hướng dẫn này
+├── assets                          # Hình ảnh và tài nguyên
+├── main.py                       # Backend FastAPI chính
+└── requirements.txt              # Danh sách gói phần mềm
 ```
-
----
-
-## Xử lý sự cố
-
-### ModuleNotFoundError khi chạy chương trình
-
-**Giải pháp:** Kiểm tra môi trường ảo đã kích hoạt. Chạy lại:
-
-```bash
-pip install -r requirements.txt
-```
-
-### "No such file or directory: data/processed/nodes.csv"
-
-**Giải pháp:** Chạy notebook `DataPreprocessing.ipynb` để tạo dữ liệu xử lý.
-
-### "Port 8501 already in use"
-
-**Giải pháp:** Chạy trên cổng khác:
-
-```bash
-streamlit run src/app.py --server.port 8502
-```
-
-### Ứng dụng mở chậm
-
-**Giải pháp:** Đây là hành vi bình thường với lần chạy đầu tiên. Dữ liệu sẽ được cache lại.
-
----
-
-## Lưu ý
-
-- Ứng dụng yêu cầu kết nối internet để tải bản đồ nền từ OpenStreetMap
-- Dữ liệu được cache trong thư mục `.streamlit` để tăng tốc độ
-- Để dừng ứng dụng, nhấn `Ctrl+C` ở terminal
