@@ -25,7 +25,6 @@
 
             <div class="control-section">
                 <h3><i class="fa-regular fa-clock"></i> Chọn khung giờ</h3>
-                <p class="sub-text">Kéo để thay đổi mật độ giao thông:</p>
                 <input type="range" id="time-slider" min="1" max="48" value="16" oninput="updateTime(this.value)">
                 <div class="time-display"><b id="time-val">08:00</b></div>
             </div>
@@ -47,7 +46,7 @@
                     <i class="fa-solid fa-bolt"></i> So sánh hiệu năng
                 </button>
                 
-                <div id="status" class="status-box">Trạng thái: Sẵn sàng</div>
+                <div id="status" class="status-box" style="display: none;"></div>
             </div>
         </div>
 

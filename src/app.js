@@ -5,8 +5,8 @@ const CONFIG = {
         MIN_LON: 106.60,
         MAX_LON: 106.80,
         CENTER: [10.776, 106.700],
-        INITIAL_ZOOM: 14,
-        MIN_ZOOM: 13,
+        INITIAL_ZOOM: 15,
+        MIN_ZOOM: 14,
         MAX_ZOOM: 18
     },
     API: {
@@ -101,7 +101,6 @@ function initializeMap() {
     }).addTo(appState.map);
 
     setupTrafficLayer();
-    setupBoundaryEffects(bounds);
     
     setTimeout(() => appState.map.invalidateSize(), 300);
 }
@@ -116,38 +115,6 @@ function setupTrafficLayer() {
         }),
         interactive: false
     }).addTo(appState.map);
-}
-
-function setupBoundaryEffects(bounds) {
-    const shadowStyle = {
-        color: "#121212",
-        weight: 0,
-        fillColor: "#121212",
-        fillOpacity: 0.82,
-        interactive: false
-    };
-
-    const OUTER_PADDING = 10;
-    const { MIN_LAT, MAX_LAT, MIN_LON, MAX_LON } = CONFIG.MAP;
-
-    // Create shadow rectangles around the map bounds
-    [
-        [[MAX_LAT, MIN_LON - OUTER_PADDING], [MAX_LAT + OUTER_PADDING, MAX_LON + OUTER_PADDING]],
-        [[MIN_LAT - OUTER_PADDING, MIN_LON - OUTER_PADDING], [MIN_LAT, MAX_LON + OUTER_PADDING]],
-        [[MIN_LAT, MIN_LON - OUTER_PADDING], [MAX_LAT, MIN_LON]],
-        [[MIN_LAT, MAX_LON], [MAX_LAT, MAX_LON + OUTER_PADDING]]
-    ].forEach(coords => L.rectangle(coords, shadowStyle).addTo(appState.map));
-
-    // Add dashed border
-    const svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svgElement.setAttribute('viewBox', "0 0 100 100");
-    svgElement.innerHTML = `
-        <rect x="1" y="1" width="98" height="98" 
-              fill="none" stroke="#e74c3c" stroke-width="2" 
-              stroke-dasharray="2,2" rx="5" ry="5" />
-    `;
-    L.svgOverlay(svgElement, bounds, { interactive: false, zIndex: 500 })
-        .addTo(appState.map);
 }
 
 // ========================================
