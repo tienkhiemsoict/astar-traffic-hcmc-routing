@@ -88,7 +88,8 @@ Từ thư mục gốc dự án, chạy lệnh:
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Ứng dụng web sẽ mở tại: `http://127.0.0.1:5500/src/index.html`
+- Backend API sẽ chạy tại: `http://127.0.0.1:8000`
+- Frontend có thể mở file `src/web/index.html` trong trình duyệt hoặc dùng Live Server
 
 ---
 
@@ -124,15 +125,17 @@ astar-traffic-hcmc-routing/
 │   ├── load_graph.py             # Tải dữ liệu đồ thị
 │   └── algorithms/
 │       ├── Dijkstra.py           # Thuật toán Dijkstra
-│       ├── AStarOrigin.py         # Thuật toán A*
-│       └── DWAStar.py             # Thuật toán DWA*
+│       ├── AStarOrigin.py        # Thuật toán A*
+│       └── DWAStar.py            # Thuật toán DWA*
 ├── data/
 │   ├── original/                 # Dữ liệu gốc OSM
 │   ├── processed/                # Dữ liệu đã xử lý
 │   └── notebooks/
 │       ├── DataPreprocessing.ipynb    # Tiền xử lý dữ liệu
 │       └── EDA.ipynb                  # Phân tích khám phá dữ liệu
-├── assets                          # Hình ảnh và tài nguyên
+├── statistics                   # Thống kê thực nghiệm
+├── assets                       # Hình ảnh và tài nguyên
 ├── main.py                       # Backend FastAPI chính
-└── requirements.txt              # Danh sách gói phần mềm
+├── requirements.txt              # Danh sách gói phần mềm
+└── README.md                     # Hướng dẫn này
 ```
