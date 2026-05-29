@@ -95,6 +95,8 @@ def get_cached_data(slot):
 def to_plain(obj):
     if isinstance(obj, (np.int64, np.int32)): return int(obj)
     if isinstance(obj, (np.float64, np.float32)): return float(obj)
+    if isinstance(obj, float) and (obj == float('inf') or obj == float('-inf')):
+        return None
     return obj
 
 # --- API ---
