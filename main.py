@@ -147,26 +147,29 @@ async def compare_algorithms(req: RouteRequest):
             ("Dijkstra", dijkstra_search),
             ("A*", a_star_search)
         ]
+
+        # Warm-up để giảm ảnh hưởng của lần chạy đầu và bộ nhớ đệm Python
+        for _, func in algos:
+            func(coords, adj, req.start_id, req.end_id)
         
+        num_trials = 3
         for name, func in algos:
-            # Bắt đầu đo thời gian
-            start_t = time.perf_counter()
-            
-            # Thực thi thuật toán
-            _, cost, vis = func(coords, adj, req.start_id, req.end_id)
-            
-            # Kết thúc đo thời gian
-            end_t = time.perf_counter()
-            
-            # Tính toán thời gian thực thi (giây * 1000 = ms)
-            # Làm tròn 2 chữ số thập phân
-            elapsed_ms = round((end_t - start_t) * 1000, 2)
-            
+            total_ms = 0.0
+            last_cost = None
+            last_visited = None
+            for _ in range(num_trials):
+                start_t = time.perf_counter()
+                _, cost, vis = func(coords, adj, req.start_id, req.end_id)
+                end_t = time.perf_counter()
+                total_ms += (end_t - start_t) * 1000
+                last_cost = cost
+                last_visited = vis
+            avg_ms = round(total_ms / num_trials, 2)
             results.append({
-                "algo": name, 
-                "dist": to_plain(cost), 
-                "visited": to_plain(vis),
-                "time_ms": elapsed_ms  # Cột thời gian mới
+                "algo": name,
+                "dist": to_plain(last_cost),
+                "visited": to_plain(last_visited),
+                "time_ms": avg_ms
             })
         
         return results

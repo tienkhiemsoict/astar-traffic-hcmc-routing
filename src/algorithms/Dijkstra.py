@@ -2,8 +2,7 @@ import heapq
 
 def dijkstra_search(coords, adj, start, goal):
     open_set = [(0, start)]
-    distances = {node: float('inf') for node in coords}
-    distances[start] = 0
+    distances = {start: 0.0}
     came_from = {}
     visited_count = 0
 
@@ -26,7 +25,7 @@ def dijkstra_search(coords, adj, start, goal):
 
         for neighbor, weight in adj.get(current, []):
             distance = current_dist + weight
-            if distance < distances[neighbor]:
+            if distance < distances.get(neighbor, float('inf')):
                 distances[neighbor] = distance
                 came_from[neighbor] = current
                 heapq.heappush(open_set, (distance, neighbor))
