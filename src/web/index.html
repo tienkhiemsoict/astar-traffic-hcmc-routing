@@ -1,89 +1,136 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HCMC Traffic Routing - Phân tích thuật toán</title>
-    
-    <link rel="icon" type="image/x-icon" href="https://upload.wikimedia.org/wikipedia/vi/thumb/e/ef/Logo_%C4%90%E1%BA%A1i_h%E1%BB%8Dc_B%C3%A1ch_Khoa_H%C3%A0_N%E1%BB%99i.svg/1920px-Logo_%C4%90%E1%BA%A1i_h%E1%BB%8Dc_B%C3%A1ch_Khoa_H%C3%A0_N%E1%BB%99i.svg.png">
 
-    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/style.all.min.css">
-    
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="https://upload.wikimedia.org/wikipedia/vi/thumb/e/ef/Logo_%C4%90%E1%BA%A1i_h%E1%BB%8Dc_B%C3%A1ch_Khoa_H%C3%A0_N%E1%BB%99i.svg/1920px-Logo_%C4%90%E1%BA%A1i_h%E1%BB%8Dc_B%C3%A1ch_Khoa_H%C3%A0_N%E1%BB%99i.svg.png"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/style.all.min.css"
+    />
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <div class="app-container">
-        <div id="sidebar">
-            <div class="profile-section">
-                <img src="../../assets/Logo_Đại_học_Bách_Khoa_Hà_Nội.png" alt="HUST Logo" class="profile-img" style="width: 100px;">
-            </div>
-
-            <div class="control-section">
-                <h3><i class="fa-regular fa-clock"></i> Chọn khung giờ</h3>
-                <input type="range" id="time-slider" min="1" max="48" value="16" oninput="updateTime(this.value)">
-                <div class="time-display"><b id="time-val">08:00</b></div>
-            </div>
-
-            <div class="control-section">
-                <h3>Chọn vị trí</h3>
-                <div class="btn-group">
-                    <button type="button" onclick="setMode('start')" class="btn-sm btn-red">Điểm đầu</button>
-                    <button type="button" onclick="setMode('end')" class="btn-sm btn-red">Điểm cuối</button>
-                </div>
-                
-                <button type="button" onclick="runRouting()" class="btn-lg btn-green">Chạy thuật toán</button>
-                <button type="button" onclick="resetMap()" class="btn-text">Reset</button>
-            </div>
-
-            <div class="control-section results-area">
-                <h3><i class="fa-solid fa-chart-line"></i> Phân tích</h3>
-                <button type="button" id="compare-btn" onclick="compareAlgos()" class="btn-lg btn-blue">
-                    <i class="fa-solid fa-bolt"></i> So sánh hiệu năng
-                </button>
-                
-                <div id="status" class="status-box" style="display: none;"></div>
-            </div>
+      <div id="sidebar">
+        <div class="profile-section">
+          <img
+            src="../../assets/Logo_Đại_học_Bách_Khoa_Hà_Nội.png"
+            alt="HUST Logo"
+            class="profile-img"
+            style="width: 100px"
+          />
         </div>
 
-        <div class="main-content">
-            <div id="map"></div>
+        <div class="control-section">
+          <h3><i class="fa-regular fa-clock"></i> Chọn khung giờ</h3>
+          <input
+            type="range"
+            id="time-slider"
+            min="1"
+            max="48"
+            value="16"
+            oninput="updateTime(this.value)"
+          />
+          <div class="time-display"><b id="time-val">08:00</b></div>
         </div>
+
+        <div class="control-section">
+          <h3>Chọn vị trí</h3>
+          <div class="btn-group">
+            <button
+              type="button"
+              onclick="setMode('start')"
+              class="btn-sm btn-red"
+            >
+              Điểm đầu
+            </button>
+            <button
+              type="button"
+              onclick="setMode('end')"
+              class="btn-sm btn-red"
+            >
+              Điểm cuối
+            </button>
+          </div>
+
+          <button type="button" onclick="runRouting()" class="btn-lg btn-green">
+            Chạy thuật toán
+          </button>
+          <button type="button" onclick="resetMap()" class="btn-text">
+            Reset
+          </button>
+        </div>
+
+        <div class="control-section results-area">
+          <h3><i class="fa-solid fa-chart-line"></i> Phân tích</h3>
+          <button
+            type="button"
+            id="compare-btn"
+            onclick="compareAlgos()"
+            class="btn-lg btn-blue"
+          >
+            <i class="fa-solid fa-bolt"></i> So sánh hiệu năng
+          </button>
+
+          <div id="status" class="status-box" style="display: none"></div>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <div id="map"></div>
+      </div>
     </div>
 
-    <div id="compare-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close-btn" onclick="closeModal()">&times;</span>
-            <h3 class="modal-title"><i class="fa-solid fa-square-poll-vertical"></i> Kết quả phân tích thuật toán</h3>
-            
-            <div class="chart-container">
-                <canvas id="algoChart"></canvas>
-            </div>
+    <div id="compare-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h3 class="modal-title">
+          <i class="fa-solid fa-square-poll-vertical"></i> Kết quả phân tích
+          thuật toán
+        </h3>
 
-            <div class="table-wrapper">
-                <table class="styled-table">
-                    <thead>
-                        <tr>
-                            <th>Thuật toán</th>
-                            <th>Quãng đường</th>
-                            <th>Node duyệt</th>
-                            <th>Thời gian</th>
-                        </tr>
-                    </thead>
-                    <tbody id="comp-body">
-                        </tbody>
-                </table>
-            </div>
+        <div class="chart-container">
+          <canvas id="algoChart"></canvas>
         </div>
+
+        <div class="table-wrapper">
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th>Thuật toán</th>
+                <th>Quãng đường</th>
+                <th>Node duyệt</th>
+                <th>Thời gian</th>
+              </tr>
+            </thead>
+            <tbody id="comp-body"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
     <script src="app.js"></script>
-</body>
+  </body>
 </html>

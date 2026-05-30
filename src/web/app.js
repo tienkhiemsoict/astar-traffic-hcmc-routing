@@ -1,257 +1,373 @@
-const cfg = {
+const CONFIG = {
     MAP: {
-        MIN_LAT: 10.7,
+        MIN_LAT: 10.70,
         MAX_LAT: 10.85,
-        MIN_LON: 106.6,
-        MAX_LON: 106.8,
-        CENTER: [10.776, 106.7],
-        ZOOM: 15,
+        MIN_LON: 106.60,
+        MAX_LON: 106.80,
+        CENTER: [10.776, 106.700],
+        INITIAL_ZOOM: 15,
         MIN_ZOOM: 14,
         MAX_ZOOM: 18
     },
     API: {
-        BASE: 'http://127.0.0.1:8000',
-        SNAP: '/api/snap-node',
-        ROUTE: '/api/route',
-        COMPARE: '/api/compare',
-        TRAFFIC: '/api/traffic-geojson'
+        BASE_URL: 'http://127.0.0.1:8000',
+        ENDPOINTS: {
+            SNAP_NODE: '/api/snap-node',
+            ROUTE: '/api/route',
+            COMPARE: '/api/compare',
+            TRAFFIC: '/api/traffic-geojson'
+        }
     },
-    ICON: {
-        S: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-        E: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    ICONS: {
+        START: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+        END: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
         SHADOW: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png'
     },
-    SLOT: 16
+    TIMING: {
+        TRAFFIC_UPDATE_DEBOUNCE: 500,
+        DEFAULT_SLOT: 16
+    }
 };
 
-const BOUNDS = L.latLngBounds(
-    [cfg.MAP.MIN_LAT, cfg.MAP.MIN_LON],
-    [cfg.MAP.MAX_LAT, cfg.MAP.MAX_LON]
-);
-
-class State {
+// ========================================
+// APPLICATION STATE
+// ========================================
+class AppState {
     constructor() {
         this.map = null;
         this.trafficLayer = null;
-        this.trafficAbort = null;
-        this.cache = {};
-        this.markers = { s: null, e: null };
-        this.route = null;
-        this.mode = null;
+        this.trafficTimer = null;
+        this.trafficAbortController = null;
+        this.trafficCache = {};
+        this.markers = {
+            start: null,
+            end: null
+        };
+        this.routeLine = null;
+        this.selectingMode = null;
         this.chart = null;
     }
 
-    resetAll() {
+    reset() {
         this.clearMarkers();
         this.clearRoute();
-        this.mode = null;
+        this.selectingMode = null;
     }
 
     clearMarkers() {
-        ['s', 'e'].forEach((k) => {
-            if (this.markers[k]) {
-                this.map.removeLayer(this.markers[k]);
-                this.markers[k] = null;
-            }
-        });
-    }
-
-    clearRoute() {
-        if (this.route) {
-            this.map.removeLayer(this.route);
-            this.route = null;
+        if (this.markers.start) {
+            this.map.removeLayer(this.markers.start);
+            this.markers.start = null;
+        }
+        if (this.markers.end) {
+            this.map.removeLayer(this.markers.end);
+            this.markers.end = null;
         }
     }
 
-    hasRoute() {
-        return this.markers.s && this.markers.e;
+    clearRoute() {
+        if (this.routeLine) {
+            this.map.removeLayer(this.routeLine);
+            this.routeLine = null;
+        }
+    }
+
+    hasValidRoute() {
+        return this.markers.start && this.markers.end;
     }
 }
 
-const state = new State();
+const appState = new AppState();
 
-function initMap() {
-    state.map = L.map('map', {
-        center: cfg.MAP.CENTER,
-        zoom: cfg.MAP.ZOOM,
-        minZoom: cfg.MAP.MIN_ZOOM,
-        maxZoom: cfg.MAP.MAX_ZOOM,
-        maxBounds: BOUNDS,
-        maxBoundsViscosity: 1,
+// ========================================
+// MAP INITIALIZATION
+// ========================================
+function initializeMap() {
+    const bounds = L.latLngBounds(
+        [CONFIG.MAP.MIN_LAT, CONFIG.MAP.MIN_LON],
+        [CONFIG.MAP.MAX_LAT, CONFIG.MAP.MAX_LON]
+    );
+
+    appState.map = L.map('map', {
+        center: CONFIG.MAP.CENTER,
+        zoom: CONFIG.MAP.INITIAL_ZOOM,
+        minZoom: CONFIG.MAP.MIN_ZOOM,
+        maxZoom: CONFIG.MAP.MAX_ZOOM,
+        maxBounds: bounds,
+        maxBoundsViscosity: 1.0,
         renderer: L.canvas()
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(state.map);
+    }).addTo(appState.map);
 
-    state.trafficLayer = L.geoJSON(null, {
-        style: (f) => ({
-            color: f.properties.color,
-            weight: f.properties.weight,
+    setupTrafficLayer();
+    
+    setTimeout(() => appState.map.invalidateSize(), 300);
+}
+
+function setupTrafficLayer() {
+    appState.trafficLayer = L.geoJSON(null, {
+        style: (feature) => ({
+            color: feature.properties.color,
+            weight: feature.properties.weight,
             opacity: 0.6,
             lineJoin: 'round'
         }),
         interactive: false
-    }).addTo(state.map);
-
-    setTimeout(() => state.map.invalidateSize(), 300);
+    }).addTo(appState.map);
 }
 
-function icon(type) {
+// ========================================
+// MARKER MANAGEMENT
+// ========================================
+function createMarkerIcon(type) {
     return L.icon({
-        iconUrl: cfg.ICON[type === 's' ? 'S' : 'E'],
-        shadowUrl: cfg.ICON.SHADOW,
+        iconUrl: CONFIG.ICONS[type.toUpperCase()],
+        shadowUrl: CONFIG.ICONS.SHADOW,
         iconSize: [25, 41],
         iconAnchor: [12, 41]
     });
 }
 
-function setMode(mode) {
-    if (mode === 's') state.resetAll();
-    state.mode = mode;
-    updateStatus(mode === 's' ? 'Chọn điểm ĐẦU...' : 'Chọn điểm CUỐI...', '#3498db');
+function setSelectionMode(mode) {
+    if (mode === 'start') {
+        appState.reset();
+        updateStatus('Đang chọn điểm ĐẦU...', '#3498db');
+    } else {
+        updateStatus('Đang chọn điểm CUỐI...', '#3498db');
+    }
+    appState.selectingMode = mode;
 }
 
 function resetMap() {
-    state.map.setView(cfg.MAP.CENTER, cfg.MAP.ZOOM);
-    state.resetAll();
-    updateStatus('Sẵn sàng', '#7f8c8d');
+    appState.map.setView(CONFIG.MAP.CENTER, CONFIG.MAP.INITIAL_ZOOM);
+    appState.reset();
+    updateStatus('Trạng thái: Sẵn sàng', '#7f8c8d');
 }
 
-async function snap(lat, lng) {
-    const res = await fetch(`${cfg.API.BASE}${cfg.API.SNAP}?lat=${lat}&lng=${lng}`);
-    return await res.json();
-}
 
-function placeMarker(type, node) {
-    const key = type === 'start' ? 's' : 'e';
-    if (state.markers[key]) state.map.removeLayer(state.markers[key]);
+async function handleMapClick(event) {
+    if (!appState.selectingMode) return;
 
-    const marker = L.marker([node.lat, node.lng], { icon: icon(key), draggable: true }).addTo(state.map);
-    marker.nodeId = node.id;
-    state.markers[key] = marker;
-}
+    const bounds = L.latLngBounds(
+        [CONFIG.MAP.MIN_LAT, CONFIG.MAP.MIN_LON],
+        [CONFIG.MAP.MAX_LAT, CONFIG.MAP.MAX_LON]
+    );
 
-async function onMapClick(e) {
-    if (!state.mode) return;
-    if (!BOUNDS.contains(e.latlng)) {
+    if (!bounds.contains(event.latlng)) {
         alert('Vui lòng chọn trong khung đỏ!');
         return;
     }
 
-    const node = await snap(e.latlng.lat, e.latlng.lng);
-    placeMarker(state.mode, node);
-    state.mode = null;
-    updateStatus('Đã chọn điểm', '#2ecc71');
+    try {
+        const node = await snapToNode(event.latlng.lat, event.latlng.lng);
+        placeMarker(appState.selectingMode, node);
+        appState.selectingMode = null;
+        updateStatus('Đã ghim vị trí.');
+    } catch (error) {
+        console.error('Snap node error:', error);
+        alert('Lỗi kết nối Server!');
+    }
+}
+
+function placeMarker(type, node) {
+    const markerType = type === 'start' ? 'start' : 'end';
+    
+    if (appState.markers[markerType]) {
+        appState.map.removeLayer(appState.markers[markerType]);
+    }
+
+    const marker = L.marker([node.lat, node.lng], {
+        icon: createMarkerIcon(markerType),
+        draggable: true
+    }).addTo(appState.map);
+
+    marker.nodeId = node.id;
+    appState.markers[markerType] = marker;
+}
+
+// ========================================
+// API CALLS
+// ========================================
+async function snapToNode(lat, lng) {
+    const url = `${CONFIG.API.BASE_URL}${CONFIG.API.ENDPOINTS.SNAP_NODE}?lat=${lat}&lng=${lng}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+        throw new Error('Failed to snap to node');
+    }
+    
+    return await response.json();
 }
 
 async function calculateRoute() {
-    if (!state.hasRoute()) {
+    if (!appState.hasValidRoute()) {
         alert('Chọn đủ 2 điểm!');
         return;
     }
 
-    state.clearRoute();
-    if (state.trafficAbort) state.trafficAbort.abort();
+    appState.clearRoute();
 
-    const slot = +document.getElementById('time-slider').value;
-    const res = await fetch(`${cfg.API.BASE}${cfg.API.ROUTE}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            start_id: state.markers.s.nodeId,
-            end_id: state.markers.e.nodeId,
-            slot
-        })
-    });
+    try {
+        const slot = parseInt(document.getElementById('time-slider').value);
+        const response = await fetch(`${CONFIG.API.BASE_URL}${CONFIG.API.ENDPOINTS.ROUTE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                start_id: appState.markers.start.nodeId,
+                end_id: appState.markers.end.nodeId,
+                slot: slot
+            })
+        });
 
-    const data = await res.json();
-    if (!data.path_coords?.length) return;
+        const data = await response.json();
 
-    state.route = L.polyline(data.path_coords, { color: '#1632cf', weight: 8, opacity: 0.95 }).addTo(state.map);
-    state.map.fitBounds(state.route.getBounds(), { padding: [50, 50] });
+        if (data.path_coords && data.path_coords.length > 0) {
+            appState.routeLine = L.polyline(data.path_coords, {
+                color: '#1632cf',
+                weight: 8,
+                opacity: 0.95
+            }).addTo(appState.map);
+
+            appState.map.fitBounds(appState.routeLine.getBounds(), {
+                padding: [50, 50]
+            });
+        }
+    } catch (error) {
+        console.error('Route calculation error:', error);
+        alert('Lỗi tính toán đường đi!');
+    }
 }
 
 async function compareAlgorithms() {
-    if (!state.hasRoute()) {
+    if (!appState.hasValidRoute()) {
         alert('Vui lòng chọn đầy đủ điểm ĐẦU và điểm CUỐI trên bản đồ!');
         return;
     }
 
-    updateStatus('Đang so sánh...', '#f39c12');
-    const slot = +document.getElementById('time-slider').value;
-    const res = await fetch(`${cfg.API.BASE}${cfg.API.COMPARE}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            start_id: state.markers.s.nodeId,
-            end_id: state.markers.e.nodeId,
-            slot
-        })
-    });
-
-    const data = await res.json();
-    renderComparison(data);
-    updateStatus('Đã hiển thị kết quả', '#2ecc71');
-}
-
-function formatTime(slot) {
-    const h = Math.floor((slot - 1) / 2);
-    return `${String(h).padStart(2, '0')}:${slot % 2 ? '30' : '00'}`;
-}
-
-async function updateTraffic(slot) {
-    if (state.trafficAbort) state.trafficAbort.abort();
-    if (state.cache[slot]) {
-        state.trafficLayer.clearLayers();
-        state.trafficLayer.addData(state.cache[slot]);
-        return;
-    }
+    updateStatus(' Đang phân tích và vẽ biểu đồ...', '#f39c12');
 
     try {
-        state.trafficAbort = new AbortController();
-        const res = await fetch(`${cfg.API.BASE}${cfg.API.TRAFFIC}?slot=${slot}`, { signal: state.trafficAbort.signal });
-        const data = await res.json();
-        state.cache[slot] = data;
-        state.trafficLayer.clearLayers();
-        state.trafficLayer.addData(data);
-    } catch (err) {
-        if (err.name !== 'AbortError') throw err;
+        const slot = parseInt(document.getElementById('time-slider').value);
+        const response = await fetch(`${CONFIG.API.BASE_URL}${CONFIG.API.ENDPOINTS.COMPARE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                start_id: appState.markers.start.nodeId,
+                end_id: appState.markers.end.nodeId,
+                slot: slot
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Server connection failed');
+        }
+
+        const data = await response.json();
+        displayComparisonResults(data);
+        updateStatus(' Đã hiển thị kết quả phân tích.', '#2ecc71');
+    } catch (error) {
+        console.error('Comparison error:', error);
+        updateStatus(` Lỗi: ${error.message}`, '#e74c3c');
     }
 }
 
-function updateTimeDisplay(value) {
-    document.getElementById('time-val').innerText = formatTime(+value);
-    updateTraffic(+value);
+// ========================================
+// TRAFFIC LAYER
+// ========================================
+function updateTime(slotValue) {
+    const slot = parseInt(slotValue);
+    const hours = Math.floor((slot - 1) * 0.5);
+    const minutes = (slot % 2 === 0) ? '30' : '00';
+    
+    document.getElementById('time-val').innerText = 
+        `${String(hours).padStart(2, '0')}:${minutes}`;
+
+    clearTimeout(appState.trafficTimer);
+    appState.trafficTimer = setTimeout(() => {
+        updateTrafficLayer(slot);
+    }, CONFIG.TIMING.TRAFFIC_UPDATE_DEBOUNCE);
 }
 
-function renderComparison(data) {
-    document.getElementById('comp-body').innerHTML = data
-        .map((i) => `<tr><td><b>${i.algo}</b></td><td>${i.dist != null ? (i.dist / 1000).toFixed(2) + ' km' : '-'}</td><td>${i.visited.toLocaleString()}</td><td>${i.time_ms} ms</td></tr>`)
-        .join('');
+async function updateTrafficLayer(slot) {
+    try {
+        if (appState.trafficAbortController) {
+            appState.trafficAbortController.abort();
+        }
+        
+        if (appState.trafficCache[slot]) {
+            appState.trafficLayer.clearLayers();
+            appState.trafficLayer.addData(appState.trafficCache[slot]);
+            return;
+        }
+        
+        appState.trafficAbortController = new AbortController();
+        const url = `${CONFIG.API.BASE_URL}${CONFIG.API.ENDPOINTS.TRAFFIC}?slot=${slot}`;
+        const response = await fetch(url, {
+            signal: appState.trafficAbortController.signal
+        });
+        
+        if (!response.ok) return;
 
+        const data = await response.json();
+        appState.trafficCache[slot] = data;
+        appState.trafficLayer.clearLayers();
+        appState.trafficLayer.addData(data);
+    } catch (error) {
+        if (error.name !== 'AbortError') {
+            console.error('Traffic layer update error:', error);
+        }
+    }
+}
+
+// ========================================
+// COMPARISON RESULTS
+// ========================================
+function displayComparisonResults(data) {
+    updateComparisonTable(data);
+    renderComparisonChart(data);
+    showModal('compare-modal');
+}
+
+function updateComparisonTable(data) {
+    const tbody = document.getElementById('comp-body');
+    tbody.innerHTML = data.map(item => `
+        <tr>
+            <td><b>${item.algo}</b></td>
+            <td>${(item.dist / 1000).toFixed(2)} km</td>
+            <td>${item.visited.toLocaleString()}</td>
+            <td>${item.time_ms} ms</td>
+        </tr>
+    `).join('');
+}
+
+function renderComparisonChart(data) {
     const ctx = document.getElementById('algoChart').getContext('2d');
-    if (state.chart) state.chart.destroy();
 
-    state.chart = new Chart(ctx, {
+    if (appState.chart) {
+        appState.chart.destroy();
+    }
+
+    appState.chart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: data.map((i) => i.algo),
+            labels: data.map(item => item.algo),
             datasets: [
                 {
-                    label: 'Node duyệt',
-                    data: data.map((i) => i.visited),
-                    backgroundColor: 'rgba(52,152,219,.7)',
-                    borderColor: 'rgba(52,152,219,1)',
+                    label: 'Số Node duyệt',
+                    data: data.map(item => item.visited),
+                    backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                    borderColor: 'rgba(52, 152, 219, 1)',
                     borderWidth: 1,
                     yAxisID: 'y'
                 },
                 {
                     label: 'Thời gian (ms)',
-                    data: data.map((i) => i.time_ms),
-                    backgroundColor: 'rgba(230,126,34,.7)',
-                    borderColor: 'rgba(230,126,34,1)',
+                    data: data.map(item => item.time_ms),
+                    backgroundColor: 'rgba(230, 126, 34, 0.7)',
+                    borderColor: 'rgba(230, 126, 34, 1)',
                     borderWidth: 1,
                     yAxisID: 'y1'
                 }
@@ -261,53 +377,93 @@ function renderComparison(data) {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: 'Node' } },
-                y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'ms' } }
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'Số lượng Node' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Thời gian thực thi (ms)' }
+                }
             },
-            plugins: { legend: { position: 'top' } }
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: false }
+            }
         }
     });
-
-    showModal('compare-modal');
 }
 
-function updateStatus(text, color = '#7f8c8d') {
-    const el = document.getElementById('status');
-    el.innerText = text;
-    el.style.color = color;
+// ========================================
+// UI HELPERS
+// ========================================
+function updateStatus(message, color = '#7f8c8d') {
+    const statusEl = document.getElementById('status');
+    statusEl.innerText = message;
+    statusEl.style.color = color;
 }
 
-function showModal(id) {
-    document.getElementById(id).style.display = 'flex';
+function showModal(modalId) {
+    document.getElementById(modalId).style.display = 'flex';
 }
 
 function closeModal() {
     document.getElementById('compare-modal').style.display = 'none';
 }
 
-function setupListeners() {
-    state.map.on('click', onMapClick);
-    window.onclick = (e) => { if (e.target === document.getElementById('compare-modal')) closeModal(); };
+// ========================================
+// EVENT LISTENERS
+// ========================================
+function setupEventListeners() {
+    appState.map.on('click', handleMapClick);
+
+    window.onclick = (event) => {
+        const modal = document.getElementById('compare-modal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    };
 }
 
-async function preloadTraffic() {
-    const res = await fetch(`${cfg.API.BASE}${cfg.API.TRAFFIC}?slot=${cfg.SLOT}`);
-    const data = await res.json();
-    state.cache[cfg.SLOT] = data;
-    updateTraffic(cfg.SLOT);
+// ========================================
+// INITIALIZATION
+// ========================================
+async function preloadTrafficCache() {
+    try {
+        const url = `${CONFIG.API.BASE_URL}${CONFIG.API.ENDPOINTS.TRAFFIC}?slot=${CONFIG.TIMING.DEFAULT_SLOT}`;
+        const response = await fetch(url);
+        if (response.ok) {
+            const data = await response.json();
+            appState.trafficCache[CONFIG.TIMING.DEFAULT_SLOT] = data;
+            updateTrafficLayer(CONFIG.TIMING.DEFAULT_SLOT);
+        }
+    } catch (error) {
+        console.log(`Failed to preload traffic for default slot`);
+    }
 }
 
 function init() {
-    initMap();
-    setupListeners();
-    preloadTraffic();
+    initializeMap();
+    setupEventListeners();
+    preloadTrafficCache();
 }
 
-document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init) : init();
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
 
-window.setMode = setMode;
+// Export functions for HTML onclick handlers
+window.setMode = setSelectionMode;
 window.resetMap = resetMap;
 window.runRouting = calculateRoute;
 window.compareAlgos = compareAlgorithms;
-window.updateTime = updateTimeDisplay;
+window.updateTime = updateTime;
 window.closeModal = closeModal;

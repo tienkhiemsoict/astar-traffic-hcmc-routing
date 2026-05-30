@@ -178,4 +178,5 @@ async def compare_algorithms(req: RouteRequest):
         raise HTTPException(status_code=500, detail=str(e))
 if __name__ == "__main__":
     import uvicorn
+    get_cached_data(16)  
     uvicorn.run(app, host="127.0.0.1", port=8000)
